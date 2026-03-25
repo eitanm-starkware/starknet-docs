@@ -42,6 +42,10 @@ Starting in Starknet v0.14.0, all transactions have to specify STRK-denominated 
   Sequencers usually charges less than the max price specified in the transaction, as charges are in accordance with the [formula for determining a transaction's fee](/learn/protocol/fees#overall-fee).
 </Note>
 
+### Proving gas
+
+Starting in Starknet 0.13.5, transactions may also specify resource bounds for _proving gas_, which enforces constraints related to the proving layer. Proving gas is a separate resource type that accounts for the computational costs of generating proofs for transaction execution. This allows the protocol to more accurately price transactions based on their proving complexity, separate from general L2 computation costs.
+
 ## Fee charges
 
 The fee for a transaction is charged atomically with the transaction execution on L2, by the Starknet OS injecting a transfer of STRK with an amount equal to the fee paid, the sender equal to the transaction submitter, and the sequencer as a receiver.
@@ -166,6 +170,10 @@ Measuring the L2 computation component of a transaction differs depending on the
     Sierra gas is only tracked if the parent call was also tracking Sierra gas, which means that if the account contract is Sierra 1.6.0 or older, VM resources will be tracked **throughout the entire transaction**. This condition may be relaxed in the future.
   </Note>
 
+<Note>
+  Starting in Starknet 0.13.5, v1-bound-accounts are introduced for Cairo 0 and Cairo 1 contracts to ensure backward compatibility with transaction version 1. These accounts use the legacy VM resource tracking mechanism.
+</Note>
+
 #### Sierra gas
 
 <Tip>
@@ -174,10 +182,10 @@ Measuring the L2 computation component of a transaction differs depending on the
 
 A Sierra program has a simple structure: types and function declaration, followed by a sequence of applications of _libfuncs_, Sierra's basic logical units (similar to opcodes, e.g. `u8_add` is a libfunc).
 
-The Cairo compiler defines a libfunc costs table, which is measured in “Sierra gas” and has a 1-1 ratio with L2 gas (i.e., a libfunc which costs 500 Sierra gas adds 500 to a transaction's overall L2 gas)
+The Cairo compiler defines a libfunc costs table, which is measured in "Sierra gas" and has a 1-1 ratio with L2 gas (i.e., a libfunc which costs 500 Sierra gas adds 500 to a transaction's overall L2 gas)
 
 <Note>
-  Despite the 1-1 ratio between Sierra gas and L2 gas, L2 gas accounts for “everything L2”, while Sierra gas strictly deals with computation, hence the distinction in terminology.
+  Despite the 1-1 ratio between Sierra gas and L2 gas, L2 gas accounts for "everything L2", while Sierra gas strictly deals with computation, hence the distinction in terminology.
 </Note>
 
 The cost of each libfunc is determined by its expanded CASM generated via the Sierra→CASM compiler based on a 100-1 ratio with Cairo steps (i.e., if a libfunc's assembly includes 10 Cairo steps, it will cost 1000 Sierra gas), while the costs of the various builtins are defined as follows:
@@ -193,6 +201,10 @@ The cost of each libfunc is determined by its expanded CASM generated via the Si
 | Keccak      | 136,189         |
 | ADD_MOD     | 230             |
 | MUL_MOD     | 604             |
+
+<Note>
+  Starting in Starknet 0.13.5, builtin operation weights are used for more accurate gas computation. These weights reflect the actual computational cost of each builtin operation in the proving process.
+</Note>
 
 <Tip>
   To review pricing for various syscalls, see the `versioned constants.json` files in the [sequencer's resources directory](https://github.com/starkware-libs/sequencer/tree/main/crates/blockifier/resources).
@@ -262,6 +274,10 @@ and crosses this information with a `CairoResourceFeeWeights` vector, a predefin
 $\underset{k}{max} \left[\right. \text{CairoResourceUsage}_{k} \cdot \text{CairoResourceFeeWeights}_{k} \left]\right.$
 
 where $k$ enumerates the Cairo resource components. Going back to the above example, if the cost of submitting a proof with 20M Pedersen hashes is roughly 5M gas, then the weight of the Pedersen builtin is 5,000,000/20,000,0000 = 25 gas per application.
+
+<Note>
+  Starting in Starknet 0.13.5, VM resource tracking has been restructured to separate transaction resources from OS resources, providing more accurate fee calculations.
+</Note>
 
 #### VM resources vs. Sierra gas
 
@@ -345,6 +361,10 @@ L2 data composes of:
 - ABI, including classes ABI in `DECLARE` transactions (only relevant for `DECLARE` transactions of version ≥ 2)
 - Casm bytecode (for all available `DECLARE` transactions, where in version \< 2 this refers to the compiled class)
 - Sierra bytecode (relevant only for `DECLARE` transactions of version ≥ 2)
+
+<Note>
+  Starting in Starknet 0.13.5, each transaction can emit up to 1,000 events. This limit is enforced by the versioned constants and affects how blocks are closed and transactions are priced.
+</Note>
 
 The L1 gas cost of each component in as follows:
 
